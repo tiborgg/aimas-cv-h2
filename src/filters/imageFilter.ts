@@ -40,4 +40,6 @@ export abstract class ImageFilter {
         this.baseApplyToCanvasContext( canvas.getContext( '2d' ), filter );
         return this;
     }
+    
+    abstract applyToCanvas( canvas: HTMLCanvasElement ): this;
 }

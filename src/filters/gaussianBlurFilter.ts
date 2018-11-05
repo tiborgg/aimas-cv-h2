@@ -37,6 +37,28 @@ function getVKernel( radius: number ) {
     return new Kernel( 1, matrix.length, matrix );
 }
 
+export function applyGaussianBlurFilter(
+    srcData: Uint8ClampedArray,
+    dstData: Uint8ClampedArray,
+    width: number,
+    height: number,
+    radius: number ) {
+
+    let filter = new GaussianBlurFilter( { radius } );
+    filter.filter( srcData, dstData, width, height );
+}
+
+export function applyGaussianGrayBlurFilter(
+    srcData: Uint8ClampedArray,
+    dstData: Uint8ClampedArray,
+    width: number,
+    height: number,
+    radius: number ) {
+
+    let filter = new GaussianBlurFilter( { radius } );
+    filter.filterGray( srcData, dstData, width, height );
+}
+
 export interface GaussianBlurFilterOptions {
     radius: number
 }
@@ -75,4 +97,20 @@ export class GaussianBlurFilter
         this.convolveH( hKernel, srcData, tmpData, width, height );
         this.convolveV( vKernel, tmpData, dstData, width, height );
     }
+
+    filterGray(
+        srcData: Uint8ClampedArray,
+        dstData: Uint8ClampedArray,
+        width: number,
+        height: number ) {
+
+        let tmpData = new Uint8ClampedArray( width * height );
+
+        let hKernel = getHKernel( this.radius );
+        let vKernel = getVKernel( this.radius );
+        
+        this.convolveHGray( hKernel, srcData, tmpData, width, height );
+        this.convolveVGray( vKernel, tmpData, dstData, width, height );
+    }
+
 }
