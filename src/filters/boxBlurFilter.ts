@@ -1,24 +1,34 @@
 import { Kernel } from './kernel';
-import { ConvolutionFilter } from './convolutionFilter';
+import { convolveUint8ClampedRgba } from './convolution';
 
-export class BoxBlurFilter
-    extends ConvolutionFilter {
+export function getBoxKernel( radius: number ) {
 
+    radius = Math.ceil( radius );
+    let size = radius * 2 + 1;
 
-    applyToCanvas( canvas: HTMLCanvasElement ) {
-        return this.baseApplyToCanvas( canvas, ( srcData, dstData, width, height ) => {
-            this.convolveHV( this._getKernel(3), srcData, dstData, width, height );
-        } );
+    let matrix = new Array( size * size );
+    matrix.fill( 1 / ( size * size ) );
+    
+    return new Kernel( size, size, matrix );
+}
+
+export function BoxUint8ClampedRgba( radius: number ) {
+    return (
+        srcData: Uint8ClampedArray,
+        dstData: Uint8ClampedArray,
+        width: number,
+        height: number ) => {
+
+        applyBoxUint8ClampedRgba( srcData, dstData, width, height, radius );
     }
+}
 
-    private _getKernel( radius: number ) {
+export function applyBoxUint8ClampedRgba(
+    srcData: Uint8ClampedArray,
+    dstData: Uint8ClampedArray,
+    width: number,
+    height: number,
+    radius: number ) {
 
-        radius = Math.ceil( radius );
-        let size = radius * 2 + 1;
-
-        let matrix = new Array( size * size );
-        matrix.fill( 1 / ( size * size ) );
-
-        return new Kernel( size, size, matrix );
-    }
+    convolveUint8ClampedRgba( getBoxKernel( radius ), srcData, dstData, width, height );
 }

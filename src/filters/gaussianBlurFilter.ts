@@ -1,7 +1,13 @@
 import { Kernel } from './kernel';
-import { ConvolutionFilter } from './convolutionFilter';
+import {
+    convolveUint8ClampedGray,
+    convolveUint8ClampedRgba,
+    convolveFloat32ClampedGray,
+    convolveFloat32ClampedRgba
+} from './convolution';
 
-function getKernelVector( radius: number ) {
+
+function getGaussianKernelVector( radius: number ) {
 
     let r = Math.ceil( radius );
     let rows = r * 2 + 1;
@@ -28,89 +34,48 @@ function getKernelVector( radius: number ) {
     return matrix;
 }
 
-function getHKernel( radius: number ) {
-    let matrix = getKernelVector( radius );
+function getGaussianHKernel( radius: number ) {
+    let matrix = getGaussianKernelVector( radius );
     return new Kernel( matrix.length, 1, matrix );
 }
-function getVKernel( radius: number ) {
-    let matrix = getKernelVector( radius );
+function getGaussianVKernel( radius: number ) {
+    let matrix = getGaussianKernelVector( radius );
     return new Kernel( 1, matrix.length, matrix );
 }
 
-export function applyGaussianBlurFilter(
+export function GaussianUint8ClampedRgba( radius: number ) {
+    return (
+        srcData: Uint8ClampedArray,
+        dstData: Uint8ClampedArray,
+        width: number,
+        height: number ) => {
+
+        applyGaussianUint8ClampedRgba( srcData, dstData, width, height, radius );
+    }
+}
+
+export function applyGaussianUint8ClampedRgba(
     srcData: Uint8ClampedArray,
     dstData: Uint8ClampedArray,
     width: number,
     height: number,
     radius: number ) {
 
-    let filter = new GaussianBlurFilter( { radius } );
-    filter.filter( srcData, dstData, width, height );
+    let tmpData = new Uint8ClampedArray( width * height * 4 );
+
+    convolveUint8ClampedRgba( getGaussianHKernel( radius ), srcData, tmpData, width, height );
+    convolveUint8ClampedRgba( getGaussianVKernel( radius ), tmpData, dstData, width, height );
 }
 
-export function applyGaussianGrayBlurFilter(
+export function applyGaussianFloat32ClampedGray(
     srcData: Uint8ClampedArray,
-    dstData: Uint8ClampedArray,
+    dstData: Float32Array,
     width: number,
     height: number,
     radius: number ) {
 
-    let filter = new GaussianBlurFilter( { radius } );
-    filter.filterGray( srcData, dstData, width, height );
-}
+    let tmpData = new Float32Array( width * height );
 
-export interface GaussianBlurFilterOptions {
-    radius: number
-}
-
-export class GaussianBlurFilter
-    extends ConvolutionFilter {
-
-    readonly radius = 5;
-
-    constructor(
-        options: Partial<GaussianBlurFilterOptions> ) {
-        super();
-        this.setOptions( options );
-    }
-
-    setOptions( options: Partial<GaussianBlurFilterOptions> ) {
-        Object.assign( this, options );
-    }
-
-    applyToCanvas( canvas: HTMLCanvasElement ) {
-
-        return this.baseApplyToCanvas( canvas, this.filter.bind( this ) );
-    }
-
-    filter(
-        srcData: Uint8ClampedArray,
-        dstData: Uint8ClampedArray,
-        width: number,
-        height: number ) {
-
-        let tmpData = new Uint8ClampedArray( width * height * 4 );
-
-        let hKernel = getHKernel( this.radius );
-        let vKernel = getVKernel( this.radius );
-
-        this.convolveH( hKernel, srcData, tmpData, width, height );
-        this.convolveV( vKernel, tmpData, dstData, width, height );
-    }
-
-    filterGray(
-        srcData: Uint8ClampedArray,
-        dstData: Uint8ClampedArray,
-        width: number,
-        height: number ) {
-
-        let tmpData = new Uint8ClampedArray( width * height );
-
-        let hKernel = getHKernel( this.radius );
-        let vKernel = getVKernel( this.radius );
-        
-        this.convolveHGray( hKernel, srcData, tmpData, width, height );
-        this.convolveVGray( vKernel, tmpData, dstData, width, height );
-    }
-
+    convolveFloat32ClampedGray( getGaussianHKernel( radius ), srcData, tmpData, width, height );
+    convolveFloat32ClampedGray( getGaussianVKernel( radius ), tmpData, dstData, width, height );
 }

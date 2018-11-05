@@ -5,7 +5,12 @@ import * as React from 'react';
 import { observable } from 'mobx';
 import { observer } from 'mobx-react';
 import * as _ from 'lodash';
-import { BoxBlurFilter, GaussianBlurFilter, SobelFilter, CannyEdgeFilter } from '../filters';
+import {
+    BoxUint8ClampedRgba,
+    GaussianUint8ClampedRgba,
+    SobelUint8ClampedRgba,
+    CannyUint8ClampedRgba
+} from '../filters';
 
 const images = [
     '/image.jpg'
@@ -17,8 +22,15 @@ export class App extends React.Component {
     canvas: HTMLCanvasElement;
     canvasContext: CanvasRenderingContext2D;
 
-    @observable
-    gaussianRadius: number = 3;
+    @observable gaussianRadius: number = 3;
+
+    @observable boxRadius: number = 3;
+
+    @observable sobelGaussianRadius: number = 2;
+
+    @observable cannyGaussianRadius: number = 2;
+    @observable cannyHysteresisLowThreshold = 0.075;
+    @observable cannyHysteresisHighThreshold = 0.175;
 
     constructor( props ) {
         super( props );
@@ -26,40 +38,87 @@ export class App extends React.Component {
 
     render() {
 
+
+        const RangeOptionElement = ( label, propName, min, max, step ) => {
+
+            return (
+                <div className="range-option">
+                    <div className="option-label">
+                        <label htmlFor={propName}>{label}</label>
+                        <div className="value">{this[ propName ]}</div>
+                    </div>
+                    <div className="range-slider">
+                        <input id={propName}
+                            type="range"
+                            min={min}
+                            max={max}
+                            step={step}
+                            value={this[ propName ]}
+                            onChange={evt => this[ propName ] = parseFloat( evt.target.value )} />
+
+                    </div>
+                </div>
+            );
+        }
+
         return (
-            <div className="app">
+            <div id="app">
+                <aside id="sidebar">
+                    <div className="upload">
 
-                <header id="header">
-                    {images.map( url => <div key={url} className="thumb" style={{ backgroundImage: `url('${url}')` }} /> )}
-                </header>
+                        <div id="uploadButton">
+                            Upload image
+                            <input type="file" onChange={this.handleFileInputChange.bind( this )} accept="image/*" />
+                        </div>
+                    </div>
 
-                <div id="toolbar">
+                    <div className="filter">
+                        <div className="heading">
+                            <h4>Box Blur</h4>
+                            <button onClick={this.handleBoxButtonClick.bind( this )}>Apply</button>
+                        </div>
+                        {RangeOptionElement( 'Radius', 'boxRadius', 1, 10, 1 )}
+                    </div>
 
-                </div>
+                    <div className="filter">
+                        <div className="heading">
+                            <h4>Gaussian Blur</h4>
+                            <button onClick={this.handleGaussianButtonClick.bind( this )}>Apply</button>
+                        </div>
+                        {RangeOptionElement( 'Radius', 'gaussianRadius', 1, 30, 1 )}
+                    </div>
 
-                <div id="image">
-                    <canvas id="canvas" ref={ref => this.canvas = ref} />
-                </div>
+                    <div className="filter">
+                        <div className="heading">
+                            <h4>Sobel Detector</h4>
+                            <button onClick={this.handleSobelButtonClick.bind( this )}>Apply</button>
+                        </div>
+                        {RangeOptionElement( 'Gaussian Kernel Radius', 'sobelGaussianRadius', 1, 10, 1 )}
+                    </div>
 
-                <div><input type="file" onChange={this.handleFileInputChange.bind( this )} accept="image/*" /></div>
 
-                <div>
-                    <label>Radius</label>
-                    <input
-                        id="gaussianRadius"
-                        type="range"
-                        min={1}
-                        max={10}
-                        step={1}
-                        value={this.gaussianRadius}
-                        onChange={evt => this.gaussianRadius = parseInt( evt.target.value )} />
-                    <div id="gaussianRadiusValue">{this.gaussianRadius}</div>
-                    <button id="gaussianButton" onClick={this.handleGaussianBlurButtonClick.bind( this )}>Gaussian Blur</button>
-                </div>
+                    <div className="filter">
+                        <div className="heading">
+                            <h4>Canny Edge Detector</h4>
+                            <button onClick={this.handleCannyButtonClick.bind( this )}>Apply</button>
+                        </div>
+                        {RangeOptionElement( 'Gaussian Kernel Radius', 'cannyGaussianRadius', 1, 10, 1 )}
+                        {RangeOptionElement( 'Hysteresis Low Threshold', 'cannyHysteresisLowThreshold', 0, 0.5, 0.005 )}
+                        {RangeOptionElement( 'Hysteresis High Threshold', 'cannyHysteresisHighThreshold', 0, 0.5, 0.005 )}
+                    </div>
+                </aside>
 
-                <div><button onClick={this.handleBoxBlurButtonClick.bind( this )}>Box Blur</button></div>
-                <div><button onClick={this.handleSobelFilterButtonClick.bind( this )}>Sobel Filter</button></div>
-                <div><button onClick={this.handleCannyFilterButtonClick.bind( this )}>Canny Filter</button></div>
+                <main id="content">
+                    <header id="header">
+                        {images.map( url => <div key={url} className="thumb" style={{ backgroundImage: `url('${url}')` }} /> )}
+                    </header>
+
+                    <div id="image">
+                        <div id="imageInner">
+                            <canvas id="canvas" ref={ref => this.canvas = ref} />
+                        </div>
+                    </div>
+                </main>
             </div>
         );
     }
@@ -67,6 +126,7 @@ export class App extends React.Component {
     componentDidMount() {
         this.canvasContext = this.canvas.getContext( '2d' );
         this.loadImageFromUrl( images[ 0 ] );
+        //this.loadImageFromRandomNoise(10, 10);
     }
 
     loadImageFromRandomNoise( width, height ) {
@@ -97,19 +157,35 @@ export class App extends React.Component {
     }
 
     loadImageFromUrl( url ) {
-
+        
         let ctx = this.canvasContext;
-
         let img = new Image();
         img.onload = () => {
-
             this.canvas.width = img.width;
             this.canvas.height = img.height;
-
             ctx.drawImage( img, 0, 0 );
         }
-
         img.src = url;
+    }
+
+    applyFilter( filter: Function ) {
+
+        const canvas = this.canvas;
+        const ctx = this.canvasContext;
+
+        const {
+            width,
+            height
+        } = canvas;
+
+        let srcData = ctx.getImageData( 0, 0, width, height );
+        let dstData = new Uint8ClampedArray( width * height * 4 );
+
+        filter( srcData.data, dstData, width, height );
+
+        let dstImgData = new ImageData( dstData, width, height );
+
+        ctx.putImageData( dstImgData, 0, 0, 0, 0, width, height );
     }
 
     handleFileInputChange( evt ) {
@@ -118,30 +194,23 @@ export class App extends React.Component {
         this.loadImageFromUrl( URL.createObjectURL( file ) );
     }
 
-    handleGaussianBlurButtonClick() {
-
-        let filter = new GaussianBlurFilter( {
-            radius: this.gaussianRadius
-        } );
-        filter.applyToCanvas( this.canvas );
-
+    handleBoxButtonClick() {
+        this.applyFilter(
+            BoxUint8ClampedRgba( this.boxRadius ) );
     }
 
-    handleBoxBlurButtonClick() {
-
-        let filter = new BoxBlurFilter();
-        filter.applyToCanvas( this.canvas );
+    handleGaussianButtonClick() {
+        this.applyFilter(
+            GaussianUint8ClampedRgba( this.gaussianRadius ) );
     }
 
-    handleSobelFilterButtonClick() {
-
-        let filter = new SobelFilter();
-        filter.applyToCanvas( this.canvas );
+    handleSobelButtonClick() {
+        this.applyFilter(
+            SobelUint8ClampedRgba( this.sobelGaussianRadius ) );
     }
 
-    handleCannyFilterButtonClick() {
-
-        let filter = new CannyEdgeFilter();
-        filter.applyToCanvas( this.canvas );
+    handleCannyButtonClick() {
+        this.applyFilter(
+            CannyUint8ClampedRgba() );
     }
 }
