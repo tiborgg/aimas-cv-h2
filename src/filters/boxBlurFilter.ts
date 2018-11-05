@@ -1,5 +1,4 @@
-import { Kernel } from './kernel';
-import { convolveUint8ClampedRgba } from './convolution';
+import { Kernel, convolveUint8ClampedRgba } from './convolution';
 
 export function getBoxKernel( radius: number ) {
 

@@ -1,5 +1,5 @@
-import { Kernel } from './kernel';
 import {
+    Kernel,
     convolveUint8ClampedGray,
     convolveUint8ClampedRgba,
     convolveFloat32ClampedGray,
