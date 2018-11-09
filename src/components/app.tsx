@@ -9,11 +9,15 @@ import {
     BoxUint8ClampedRgba,
     GaussianUint8ClampedRgba,
     SobelUint8ClampedRgba,
-    CannyUint8ClampedRgba
+    CannyUint8ClampedRgba,
+    StopFilterRgba,
+    getStopMaskData,
+    grayToRgba
 } from '../filters';
 
 const images = [
-    '/image.jpg'
+    '/stop1.jpg',
+    '/stop2.jpg',
 ];
 
 @observer
@@ -106,11 +110,20 @@ export class App extends React.Component {
                         {RangeOptionElement( 'Hysteresis Low Threshold', 'cannyHysteresisLowThreshold', 0, 0.5, 0.005 )}
                         {RangeOptionElement( 'Hysteresis High Threshold', 'cannyHysteresisHighThreshold', 0, 0.5, 0.005 )}
                     </div>
+
+                    <div className="filter">
+                        <div className="heading">
+                            <h4>Stop filter</h4>
+                            <button onClick={this.handleStopButtonClick.bind( this )}>Apply</button>
+                        </div>
+                    </div>
                 </aside>
 
                 <main id="content">
                     <header id="header">
-                        {images.map( url => <div key={url} className="thumb" style={{ backgroundImage: `url('${url}')` }} /> )}
+                        {images.map( url => (
+                            <div key={url} className="thumb" style={{ backgroundImage: `url('${url}')` }} onClick={evt => this.loadImageFromUrl( url )} />
+                        ) )}
                     </header>
 
                     <div id="image">
@@ -126,7 +139,11 @@ export class App extends React.Component {
     componentDidMount() {
         this.canvasContext = this.canvas.getContext( '2d' );
         this.loadImageFromUrl( images[ 0 ] );
-        //this.loadImageFromRandomNoise(10, 10);
+        //this.loadImageFromRandomNoise( 4, 4 );
+        //this.loadStopMask();
+
+        // this.applyFilter(
+        //     StopFilterRgba() );
     }
 
     loadImageFromRandomNoise( width, height ) {
@@ -139,10 +156,18 @@ export class App extends React.Component {
         let data = new Uint8ClampedArray( width * height * 4 );
         for ( let y = 0; y < height; y++ ) {
             for ( let x = 0; x < width; x++ ) {
-                let r = Math.random() * 255;
-                let g = Math.random() * 255;
-                let b = Math.random() * 255;
+
+                let r = 0;//Math.random() * 255;
+                let g = 0;//Math.random() * 255;
+                let b = 0;//Math.random() * 255;
                 let a = 255;
+
+                if ( y > 0 && y < 3 && x > 0 && y < 3 ) {
+                    r = 255;//Math.random() * 255;
+                    g = 0;//Math.random() * 255;
+                    b = 0;//Math.random() * 255;
+                    a = 255;
+                }
 
                 let offset = ( y * width + x ) * 4;
 
@@ -157,7 +182,7 @@ export class App extends React.Component {
     }
 
     loadImageFromUrl( url ) {
-        
+
         let ctx = this.canvasContext;
         let img = new Image();
         img.onload = () => {
@@ -166,6 +191,41 @@ export class App extends React.Component {
             ctx.drawImage( img, 0, 0 );
         }
         img.src = url;
+    }
+
+    loadStopMask() {
+        // to also test rescaling
+        let width = 900;
+        let height = 400;
+        let grayData = getStopMaskData( width, height );
+
+        this.loadGrayImageData( grayData, width, height );
+    }
+
+    loadGrayImageData(
+        grayData: Uint8ClampedArray,
+        width: number,
+        height: number ) {
+
+        let rgbaData = new Uint8ClampedArray( width * height * 4 );
+        grayToRgba( grayData, rgbaData );
+
+        this.loadRgbaImageData( rgbaData, width, height );
+    }
+
+    loadRgbaImageData(
+        rgbaData: Uint8ClampedArray,
+        width: number,
+        height: number ) {
+
+        const canvas = this.canvas;
+        const ctx = this.canvasContext;
+
+        canvas.width = width;
+        canvas.height = height;
+
+        let dstImgData = new ImageData( rgbaData, width, height );
+        ctx.putImageData( dstImgData, 0, 0, 0, 0, width, height );
     }
 
     applyFilter( filter: Function ) {
@@ -183,9 +243,7 @@ export class App extends React.Component {
 
         filter( srcData.data, dstData, width, height );
 
-        let dstImgData = new ImageData( dstData, width, height );
-
-        ctx.putImageData( dstImgData, 0, 0, 0, 0, width, height );
+        this.loadRgbaImageData( dstData, width, height );
     }
 
     handleFileInputChange( evt ) {
@@ -212,5 +270,10 @@ export class App extends React.Component {
     handleCannyButtonClick() {
         this.applyFilter(
             CannyUint8ClampedRgba() );
+    }
+
+    handleStopButtonClick() {
+        this.applyFilter(
+            StopFilterRgba() );
     }
 }
