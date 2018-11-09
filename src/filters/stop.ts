@@ -6,8 +6,11 @@ const MIN_G = 0;
 const MAX_G = 80;
 const MIN_B = 0;
 const MAX_B = 80;
-const MIN_CLUSTER_WIDTH = 5;
-const MIN_CLUSTER_HEIGHT = 5;
+const MIN_CLUSTER_WIDTH = 50;
+const MIN_CLUSTER_HEIGHT = 50;
+const MIN_CLUSTER_RATIO = 0.8;
+const STOP_BORDER_RATIO = 0.025;
+const STOP_MAX_DIST = 0.2;
 
 const STEP_MASK = new Uint8ClampedArray( 600 * 600 * 4 );
 
@@ -68,9 +71,8 @@ function applyColorBinaryThresholdRgba(
     }
 }
 
-export function applyStopFilterRgba(
+export function getStopFilterRegionsRgba(
     srcData: Uint8ClampedArray,
-    dstData: Uint8ClampedArray,
     width: number,
     height: number ) {
 
@@ -80,7 +82,6 @@ export function applyStopFilterRgba(
 
     let thrsData = new Uint8ClampedArray( width * height );
     let thrsIndex = 0;
-
 
     for ( let y = 0; y < height; y++ ) {
         for ( let x = 0; x < width; x++ ) {
@@ -98,19 +99,6 @@ export function applyStopFilterRgba(
                 MIN_B <= b && b <= MAX_B ) ? 255 : 0;
 
             thrsData[ thrsIndex++ ] = val;
-
-            // reset the destination matrix
-            dstData[ o + 0 ] = 0;
-            dstData[ o + 1 ] = 0;
-            dstData[ o + 2 ] = 0;
-            dstData[ o + 3 ] = 255;
-
-            // if ( val === 255 ) {
-            //     dstData[ o + 0 ] = 255;
-            //     dstData[ o + 1 ] = 255;
-            //     dstData[ o + 2 ] = 255;
-            //     dstData[ o + 3 ] = 255;
-            // }
         }
     }
 
@@ -238,7 +226,7 @@ export function applyStopFilterRgba(
 
         if ( cwidth < MIN_CLUSTER_WIDTH ||
             cheight < MIN_CLUSTER_HEIGHT ||
-            ratio < 0.8 ) {
+            ratio < MIN_CLUSTER_RATIO ) {
             continue;
         }
 
@@ -248,91 +236,54 @@ export function applyStopFilterRgba(
     // for each cluster, rescale the mask according to its bounding box
     // then compute the similarity between the mask and the cluster
 
+    let regions = [];
+
     for ( let c = 0; c < clusters.length; c++ ) {
 
         let cluster = clusters[ c ];
-        let maskRgbaData = getStopMaskData( cluster.width, cluster.height );
+        let maskGrayData = getStopMaskThresholdData( cluster.width, cluster.height );
 
         let cx1 = cluster.x1;
         let cx2 = cluster.x2;
         let cy1 = cluster.y1;
         let cy2 = cluster.y2;
 
-        let totalDist = 0;
-        let total = 0; // because we weight each distance with the alpha, we need to keep track of the total weight of the cluster
+        let dist = 0;
 
         // take each pixel from the cluster, and compare it with the same location in the mask
         for ( let cy = cy1; cy < cy2; cy++ ) {
             for ( let cx = cx1; cx < cx2; cx++ ) {
 
-                let i = ( cy * width + cx ) * 4;
+                let i = ( cy * width + cx );
 
                 let mx = cx - cx1;
                 let my = cy - cy1;
-                let mi = ( my * cluster.width + mx ) * 4;
+                let mi = ( my * cluster.width + mx );
 
-                let mr = maskRgbaData[ mi + 0 ];
-                let mg = maskRgbaData[ mi + 1 ];
-                let mb = maskRgbaData[ mi + 2 ];
-                let ma = maskRgbaData[ mi + 3 ];
-
-                let r = srcData[ i + 0 ];
-                let g = srcData[ i + 1 ];
-                let b = srcData[ i + 2 ];
-                let a = srcData[ i + 0 ];
-
-                let weight = ( ma / 255 );
-                total += weight;
+                let v = thrsData[ i ];
+                let mv = maskGrayData[ mi ];
 
                 // compute the distance from the actual pixel to the mask pixel
-                let dist = (
-                    Math.pow( mr - r, 2 ) +
-                    Math.pow( mg - g, 2 ) +
-                    Math.pow( mb - b, 2 ) ) / ( 255 * 255 * 3 );
-                dist *= weight;
-
-                totalDist += dist;
+                dist += Math.abs( ( mv - v ) / 255 );
             }
         }
 
         // adjust the similarity index
-        totalDist /= total;
+        dist /= ( cluster.width * cluster.height );
 
-        console.log( totalDist, cluster.width, cluster.height );
+        if ( dist < STOP_MAX_DIST ) {
 
-        if ( totalDist > 0.6 ) {
+            let borderXAdjust = Math.round( cluster.width * STOP_BORDER_RATIO );
+            let borderYAdjust = Math.round( cluster.height * STOP_BORDER_RATIO );
 
+            regions.push( {
+                x: cx1 - borderXAdjust,
+                y: cy1 - borderYAdjust,
+                width: cluster.width + borderXAdjust * 2,
+                height: cluster.height + borderYAdjust * 2
+            } );
         }
     }
 
-    // for ( let c = 0; c < clusters.length; c++ ) {
-
-    //     let cluster = clusters[ c ];
-
-    //     let r = Math.random() * 255;
-    //     let g = Math.random() * 255;
-    //     let b = Math.random() * 255;
-
-    //     for ( let ci = 0; ci < cluster.pixels.length; ci++ ) {
-
-    //         let i = cluster.pixels[ ci ];
-
-    //         dstData[ i * 4 + 0 ] = r;
-    //         dstData[ i * 4 + 1 ] = g;
-    //         dstData[ i * 4 + 2 ] = b;
-    //         dstData[ i * 4 + 3 ] = 255;
-    //     }
-    // }
-}
-
-export function StopFilterRgba() {
-
-    return (
-        srcData: Uint8ClampedArray,
-        dstData: Uint8ClampedArray,
-        width: number,
-        height: number ) => {
-
-        applyStopFilterRgba( srcData, dstData, width, height );
-    }
+    return regions;
 }

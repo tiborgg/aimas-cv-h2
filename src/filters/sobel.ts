@@ -1,7 +1,9 @@
 import * as _ from 'lodash';
 import { Kernel, convolveFloat32ClampedGray } from './convolution';
 import { rgbaToGray, grayToRgba } from './image';
-import { GaussianUint8ClampedRgba } from './gaussianBlurFilter';
+import { GaussianUint8ClampedRgba } from './gaussian';
+
+export const DEF_SOBEL_GAUSSIAN_RADIUS = 2;
 
 export function getSobelXKernel() {
     return new Kernel( 3, 3, [
@@ -34,7 +36,7 @@ export function applySobelUint8ClampedRgba(
     dstData: Uint8ClampedArray,
     width: number,
     height: number,
-    gaussianRadius: number ) {
+    gaussianRadius: number = DEF_SOBEL_GAUSSIAN_RADIUS ) {
 
     let gaussian = GaussianUint8ClampedRgba( gaussianRadius );
 

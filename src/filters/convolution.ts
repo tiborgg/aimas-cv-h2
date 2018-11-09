@@ -121,13 +121,11 @@ export function baseConvolve(
                 for ( let col = -cols2; col <= cols2; col++ ) {
                     let f = matrix[ moffset + col ];
 
-
                     let ix = x + col;
                     if ( !( 0 <= ix && ix < width ) )
                         ix = x; // clamp
 
                     let offset = ( ioffset + ix ) * channelCount;
-
 
                     for ( let o = 0; o < channelCount; o++ ) {
                         channels[ o ] += f * srcData[ offset + o ];
@@ -135,11 +133,8 @@ export function baseConvolve(
                 }
             }
 
-            for ( let o = 0; o < channelCount; o++ ) {
-
+            for ( let o = 0; o < channelCount; o++ )
                 dstData[ index++ ] = channelCallback( channels[ o ] );
-
-            }
         }
     }
 }

@@ -31,12 +31,15 @@ body { background: white; margin:0; padding:0; font-family: Poppins, sans-serif;
 
 
 #header { position:relative; display:flex; align-items:center; justify-content:center; background: white; padding:10px; box-shadow:0px 1px 15px 1px rgba(69,65,78,0.05); }
-#header .thumb { width: 160px; height: 90px; border:#36374c; background-size:cover; overflow:hidden; }
+#header .thumb { width: 160px; height: 90px; border:#36374c; background-size:cover; overflow:hidden; margin:0 5px; cursor:pointer; }
 
 #toolbar { height: 60px; background: #262734; }
 
 #image { flex:1; position:relative; background:#F2F3F8; }
-#imageInner { position:absolute; top:0; left:0; right:0; bottom:0; display: flex; align-items: center; justify-content: center; overflow:auto; }
+#imageInner { position:absolute; top:0; left:0; right:0; bottom:0; display: flex; align-items: center; justify-content: center; overflow:auto; 
+    .region { position:absolute; background: rgba(255,255,255,.4); border:2px solid rgba(255,255,255,.7); }
+}
 
+#canvasOuter { position:absolute; }
 #canvas {  }
 #canvas.zoom { image-rendering: 'pixelated'; transform: scale(5); }

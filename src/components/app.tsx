@@ -8,16 +8,24 @@ import * as _ from 'lodash';
 import {
     BoxUint8ClampedRgba,
     GaussianUint8ClampedRgba,
+    DEF_SOBEL_GAUSSIAN_RADIUS,
     SobelUint8ClampedRgba,
     CannyUint8ClampedRgba,
-    StopFilterRgba,
+    getStopFilterRegionsRgba,
     getStopMaskData,
-    grayToRgba
+    grayToRgba,
+    DEF_CANNY_GAUSSIAN_RADIUS,
+    DEF_CANNY_HT_LOW,
+    DEF_CANNY_HT_HIGH
 } from '../filters';
 
 const images = [
     '/stop1.jpg',
     '/stop2.jpg',
+    '/stop3.jpg',
+    '/stop4.jpg',
+    '/stop5.jpg',
+    '/stop6.jpg'
 ];
 
 @observer
@@ -30,11 +38,13 @@ export class App extends React.Component {
 
     @observable boxRadius: number = 3;
 
-    @observable sobelGaussianRadius: number = 2;
+    @observable sobelGaussianRadius: number = DEF_SOBEL_GAUSSIAN_RADIUS;
 
-    @observable cannyGaussianRadius: number = 2;
-    @observable cannyHysteresisLowThreshold = 0.075;
-    @observable cannyHysteresisHighThreshold = 0.175;
+    @observable cannyGaussianRadius = DEF_CANNY_GAUSSIAN_RADIUS;
+    @observable cannyHysteresisLowThreshold = DEF_CANNY_HT_LOW;
+    @observable cannyHysteresisHighThreshold = DEF_CANNY_HT_HIGH;
+
+    @observable stopFilterRegions = [];
 
     constructor( props ) {
         super( props );
@@ -68,13 +78,13 @@ export class App extends React.Component {
         return (
             <div id="app">
                 <aside id="sidebar">
-                    <div className="upload">
+                    {/* <div className="upload">
 
                         <div id="uploadButton">
                             Upload image
                             <input type="file" onChange={this.handleFileInputChange.bind( this )} accept="image/*" />
                         </div>
-                    </div>
+                    </div> */}
 
                     <div className="filter">
                         <div className="heading">
@@ -113,7 +123,7 @@ export class App extends React.Component {
 
                     <div className="filter">
                         <div className="heading">
-                            <h4>Stop filter</h4>
+                            <h4>Stop sign filter</h4>
                             <button onClick={this.handleStopButtonClick.bind( this )}>Apply</button>
                         </div>
                     </div>
@@ -128,11 +138,21 @@ export class App extends React.Component {
 
                     <div id="image">
                         <div id="imageInner">
-                            <canvas id="canvas" ref={ref => this.canvas = ref} />
+                            <div id="canvasOuter">
+                                <canvas id="canvas" ref={ref => this.canvas = ref} />
+                                {this.stopFilterRegions.map( region =>
+                                    <div className="region" style={{
+                                        left: region.x + 'px',
+                                        top: region.y + 'px',
+                                        width: region.width + 'px',
+                                        height: region.height + 'px'
+                                    }} />
+                                )}
+                            </div>
                         </div>
                     </div>
                 </main>
-            </div>
+            </div >
         );
     }
 
@@ -183,6 +203,8 @@ export class App extends React.Component {
 
     loadImageFromUrl( url ) {
 
+        this.stopFilterRegions = [];
+
         let ctx = this.canvasContext;
         let img = new Image();
         img.onload = () => {
@@ -230,6 +252,8 @@ export class App extends React.Component {
 
     applyFilter( filter: Function ) {
 
+        this.stopFilterRegions = [];
+
         const canvas = this.canvas;
         const ctx = this.canvasContext;
 
@@ -269,11 +293,24 @@ export class App extends React.Component {
 
     handleCannyButtonClick() {
         this.applyFilter(
-            CannyUint8ClampedRgba() );
+            CannyUint8ClampedRgba(
+                this.cannyGaussianRadius,
+                this.cannyHysteresisLowThreshold,
+                this.cannyHysteresisHighThreshold ) );
     }
 
     handleStopButtonClick() {
-        this.applyFilter(
-            StopFilterRgba() );
+
+        const canvas = this.canvas;
+        const ctx = this.canvasContext;
+
+        const {
+            width,
+            height
+        } = canvas;
+
+        let srcData = ctx.getImageData( 0, 0, width, height );
+
+        this.stopFilterRegions = getStopFilterRegionsRgba( srcData.data, width, height );
     }
 }

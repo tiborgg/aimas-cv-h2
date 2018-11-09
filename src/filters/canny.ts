@@ -1,7 +1,7 @@
 import * as _ from 'lodash';
 import { Kernel } from './convolution';
-import { applyGaussianFloat32ClampedGray } from './gaussianBlurFilter';
-import { getSobelXKernel, getSobelYKernel } from './sobelFilter';
+import { applyGaussianFloat32ClampedGray } from './gaussian';
+import { getSobelXKernel, getSobelYKernel } from './sobel';
 import { rgbaToGray, grayToRgba } from './image';
 import {
     convolveFloat32Gray
@@ -15,16 +15,29 @@ export const DEF_CANNY_GAUSSIAN_RADIUS = 2;
 export const DEF_CANNY_HT_LOW = 0.075;
 export const DEF_CANNY_HT_HIGH = 0.175;
 
-export function CannyUint8ClampedRgba() {
+export function CannyUint8ClampedRgba(
+    gaussianRadius: number,
+    htLowThreshold: number,
+    htHighThreshold: number ) {
 
-    return applyCannyUint8ClampedRgba;
+    return (
+        srcData: Uint8ClampedArray,
+        dstData: Uint8ClampedArray,
+        width: number,
+        height: number ) => {
+
+        applyCannyUint8ClampedRgba( srcData, dstData, width, height, gaussianRadius, htLowThreshold, htHighThreshold );
+    }
 }
 
 export function applyCannyUint8ClampedRgba(
     srcData: Uint8ClampedArray,
     dstData: Uint8ClampedArray,
     width: number,
-    height: number ) {
+    height: number,
+    gaussianRadius: number = DEF_CANNY_GAUSSIAN_RADIUS,
+    htLowThreshold: number = DEF_CANNY_HT_LOW,
+    htHighThreshold: number = DEF_CANNY_HT_HIGH ) {
 
     const index = ( y, x ) => y * width + x;
 
@@ -51,15 +64,15 @@ export function applyCannyUint8ClampedRgba(
     rgbaToGray( srcData, grayData );
 
     // apply gaussian filter
-    let gaussianKernel = new Kernel( 5, 5, [
-        0.0125786163522013, 0.0251572327044025, 0.0314465408805031, 0.0251572327044025, 0.0125786163522013,
-        0.0251572327044025, 0.0566037735849057, 0.0754716981132076, 0.0566037735849057, 0.0251572327044025,
-        0.0314465408805031, 0.0754716981132076, 0.0943396226415094, 0.0754716981132076, 0.0314465408805031,
-        0.0251572327044025, 0.0566037735849057, 0.0754716981132076, 0.0566037735849057, 0.0251572327044025,
-        0.0125786163522013, 0.0251572327044025, 0.0314465408805031, 0.0251572327044025, 0.0125786163522013 ] );
+    // let gaussianKernel = new Kernel( 5, 5, [
+    //     0.0125786163522013, 0.0251572327044025, 0.0314465408805031, 0.0251572327044025, 0.0125786163522013,
+    //     0.0251572327044025, 0.0566037735849057, 0.0754716981132076, 0.0566037735849057, 0.0251572327044025,
+    //     0.0314465408805031, 0.0754716981132076, 0.0943396226415094, 0.0754716981132076, 0.0314465408805031,
+    //     0.0251572327044025, 0.0566037735849057, 0.0754716981132076, 0.0566037735849057, 0.0251572327044025,
+    //     0.0125786163522013, 0.0251572327044025, 0.0314465408805031, 0.0251572327044025, 0.0125786163522013 ] );
 
-    //applyGaussianFloat32ClampedGray( grayData, blurData, width, height, 2 );
-    convolveFloat32Gray( gaussianKernel, grayData, blurData, width, height );
+    applyGaussianFloat32ClampedGray( grayData, blurData, width, height, gaussianRadius );
+    //convolveFloat32Gray( gaussianKernel, grayData, blurData, width, height );
 
     // apply the sobel kernel and calculate the angle of the edge
 
@@ -87,12 +100,6 @@ export function applyCannyUint8ClampedRgba(
             Math.pow( tmpXData[ i ], 2 ) +
             Math.pow( tmpYData[ i ], 2 ) );
     }
-
-    //logMatrix( 'angles', angles );
-
-    //logMatrix( 'angles', angles );
-    //logMatrix( 'magnitudes', magnitudes );
-
 
     // create a matrix which contains nearest angles in 45 degree increments
     let directions = new Float32Array( width * height );
@@ -173,11 +180,8 @@ export function applyCannyUint8ClampedRgba(
     let max = _.max( nonmax );
 
     // normalize the range of the thresholding
-    let htLow = DEF_CANNY_HT_LOW * max;
-    let htHigh = DEF_CANNY_HT_HIGH * max;
-
-    console.log( htLow );
-    console.log( htHigh );
+    let htLow = htLowThreshold * max;
+    let htHigh = htHighThreshold * max;
 
     let hystData = new Uint8ClampedArray( width * height );
     hystData.fill( 0 );
@@ -193,7 +197,6 @@ export function applyCannyUint8ClampedRgba(
             else if ( nonmax[ i ] > htHigh )
                 hystData[ i ] = 255;
 
-            // using 8 - connected components
             else if (
                 nonmax[ yoffset + width + x ] > htHigh ||
                 nonmax[ yoffset - width + x ] > htHigh ||
